@@ -23,6 +23,12 @@ const PUBLIC_SEQUENCE_DIR = path.join(__dirname, '..', 'public', 'sequence')
 // has to stretch the image less at large/retina viewport sizes.
 const DESKTOP_WIDTH = 2400
 const MOBILE_WIDTH = 1200
+// Blurred backdrop shown behind the contain-fit mobile frame (letterbox
+// fill). Pre-baked at build time — a live `ctx.filter` blur on every scroll
+// tick is expensive and inconsistently supported on mobile browsers.
+const MOBILE_BG_WIDTH = 500
+const MOBILE_BG_BLUR = 24
+const MOBILE_BG_BRIGHTNESS = 0.5
 
 async function main() {
   const sourceDir = process.argv[2]
@@ -49,6 +55,7 @@ async function main() {
 
   await mkdir(path.join(PUBLIC_SEQUENCE_DIR, 'desktop'), { recursive: true })
   await mkdir(path.join(PUBLIC_SEQUENCE_DIR, 'mobile'), { recursive: true })
+  await mkdir(path.join(PUBLIC_SEQUENCE_DIR, 'mobile-bg'), { recursive: true })
 
   for (let i = 0; i < numbered.length; i++) {
     const srcPath = path.join(sourceDir, numbered[i].file)
@@ -65,6 +72,13 @@ async function main() {
       .sharpen()
       .webp({ quality: 85 })
       .toFile(path.join(PUBLIC_SEQUENCE_DIR, 'mobile', outName))
+
+    await sharp(srcPath)
+      .resize({ width: MOBILE_BG_WIDTH })
+      .blur(MOBILE_BG_BLUR)
+      .modulate({ brightness: MOBILE_BG_BRIGHTNESS })
+      .webp({ quality: 60 })
+      .toFile(path.join(PUBLIC_SEQUENCE_DIR, 'mobile-bg', outName))
 
     process.stdout.write(`\r${i + 1}/${numbered.length}`)
   }

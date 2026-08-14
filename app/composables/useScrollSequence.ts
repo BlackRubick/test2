@@ -9,8 +9,13 @@ interface ScrollSequenceOptions {
 }
 
 interface RendererLike {
-  drawFrame: (source: CanvasImageSource) => void
-  drawBlended: (from: CanvasImageSource, to: CanvasImageSource, t: number) => void
+  drawFrame: (source: CanvasImageSource, background?: CanvasImageSource) => void
+  drawBlended: (
+    from: CanvasImageSource,
+    to: CanvasImageSource,
+    t: number,
+    fromBackground?: CanvasImageSource
+  ) => void
 }
 
 /**
@@ -29,7 +34,9 @@ export function useScrollSequence(
   getSection: () => HTMLElement | null,
   sequence: ImageSequenceHandle,
   renderer: RendererLike,
-  options: ScrollSequenceOptions
+  options: ScrollSequenceOptions,
+  /** Optional pre-blurred backdrop sequence, shown behind a contain-fit frame (mobile letterboxing). */
+  backgroundSequence?: ImageSequenceHandle
 ) {
   const progress = ref(0)
   const frameIndex = ref(0)
@@ -55,17 +62,18 @@ export function useScrollSequence(
 
     const from = sequence.getFrame(lower)
     if (!from) return
+    const fromBg = backgroundSequence?.getFrame(lower) ?? undefined
 
     if (upper === lower) {
-      renderer.drawFrame(from)
+      renderer.drawFrame(from, fromBg)
       return
     }
     const to = sequence.getFrame(upper)
     if (!to) {
-      renderer.drawFrame(from)
+      renderer.drawFrame(from, fromBg)
       return
     }
-    renderer.drawBlended(from, to, t)
+    renderer.drawBlended(from, to, t, fromBg)
   }
 
   function onScrollUpdate(p: number) {
@@ -75,6 +83,7 @@ export function useScrollSequence(
     if (idx !== frameIndex.value) {
       frameIndex.value = idx
       sequence.setActiveIndex(idx)
+      backgroundSequence?.setActiveIndex(idx)
     }
     renderAt(position)
   }
@@ -99,6 +108,7 @@ export function useScrollSequence(
     const position = positionForProgress(p)
     frameIndex.value = Math.round(position)
     sequence.setActiveIndex(frameIndex.value)
+    backgroundSequence?.setActiveIndex(frameIndex.value)
     renderAt(position)
   }
 

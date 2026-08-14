@@ -4,7 +4,7 @@
  * preload behavior should only ever require editing values here.
  */
 
-export type SequenceVariantId = 'desktop' | 'mobile'
+export type SequenceVariantId = 'desktop' | 'mobile' | 'mobileBackground'
 
 export interface SequenceVariantConfig {
   id: SequenceVariantId
@@ -31,6 +31,17 @@ export const SEQUENCE_VARIANTS: Record<SequenceVariantId, SequenceVariantConfig>
     path: '/sequence/mobile/frame-{index}.webp',
     width: 1200,
     height: 655
+  },
+  // Pre-blurred/darkened letterbox backdrop for the mobile contain-fit
+  // canvas — baked at build time (see scripts/import-sequence.mjs) so the
+  // renderer never has to run a live `ctx.filter` blur, which is both slow
+  // and inconsistently supported on mobile browsers.
+  mobileBackground: {
+    id: 'mobileBackground',
+    frameCount: 13,
+    path: '/sequence/mobile-bg/frame-{index}.webp',
+    width: 500,
+    height: 273
   }
 }
 

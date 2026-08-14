@@ -96,22 +96,32 @@ export function useCanvasRenderer() {
     lastRedraw?.()
   }
 
-  function paint(source: CanvasImageSource, alpha: number) {
+  function paintBackground(background: CanvasImageSource | undefined) {
+    if (!canvas || !ctx) return
+    if (background) {
+      const { w: bgW, h: bgH } = frameSize(background)
+      if (bgW && bgH) {
+        const bgRect = computeCoverRect(bgW, bgH, canvas.width, canvas.height)
+        ctx.drawImage(background, bgRect.sx, bgRect.sy, bgRect.sw, bgRect.sh, bgRect.dx, bgRect.dy, bgRect.dw, bgRect.dh)
+        return
+      }
+    }
+    // Background not loaded yet — a flat fallback beats stale/garbled pixels.
+    ctx.fillStyle = '#14130F'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+  }
+
+  function paint(source: CanvasImageSource, alpha: number, background?: CanvasImageSource) {
     if (!canvas || !ctx) return
     const { w: srcW, h: srcH } = frameSize(source)
     if (!srcW || !srcH || !canvas.width || !canvas.height) return
 
     if (fitMode === 'contain') {
-      if (alpha >= 1) {
-        // Fill the letterboxed edges with a blurred, darkened cover-fit copy
-        // of the same photo instead of a flat color — reads as an
-        // intentional backdrop rather than a hard crop.
-        const bgRect = computeCoverRect(srcW, srcH, canvas.width, canvas.height)
-        ctx.save()
-        ctx.filter = 'blur(40px) brightness(0.5)'
-        ctx.drawImage(source, bgRect.sx, bgRect.sy, bgRect.sw, bgRect.sh, bgRect.dx, bgRect.dy, bgRect.dw, bgRect.dh)
-        ctx.restore()
-      }
+      // The letterboxed edges are filled by a pre-blurred/darkened backdrop
+      // baked at build time (see scripts/import-sequence.mjs) — reads as an
+      // intentional backdrop rather than a hard crop, with zero runtime
+      // blur cost (a live ctx.filter blur is slow and flaky on mobile).
+      if (alpha >= 1) paintBackground(background)
       const rect = computeContainRect(srcW, srcH, canvas.width, canvas.height)
       ctx.globalAlpha = alpha
       ctx.drawImage(source, rect.sx, rect.sy, rect.sw, rect.sh, rect.dx, rect.dy, rect.dw, rect.dh)
@@ -126,8 +136,8 @@ export function useCanvasRenderer() {
   }
 
   /** Draws a single frame, fully opaque. */
-  function drawFrame(source: CanvasImageSource) {
-    lastRedraw = () => paint(source, 1)
+  function drawFrame(source: CanvasImageSource, background?: CanvasImageSource) {
+    lastRedraw = () => paint(source, 1, background)
     lastRedraw()
   }
 
@@ -137,9 +147,14 @@ export function useCanvasRenderer() {
    * between the two nearest ones as the user scrolls is what keeps the
    * sequence reading as continuous motion instead of a slideshow.
    */
-  function drawBlended(from: CanvasImageSource, to: CanvasImageSource, t: number) {
+  function drawBlended(
+    from: CanvasImageSource,
+    to: CanvasImageSource,
+    t: number,
+    fromBackground?: CanvasImageSource
+  ) {
     lastRedraw = () => {
-      paint(from, 1)
+      paint(from, 1, fromBackground)
       if (t > 0) paint(to, t)
     }
     lastRedraw()

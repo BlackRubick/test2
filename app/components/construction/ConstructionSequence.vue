@@ -17,6 +17,7 @@ const scrollProgress = ref(0)
 const activeLabel = ref<string>(CONSTRUCTION_BEATS[0]!.label)
 
 let sequence: ReturnType<typeof useImageSequence> | null = null
+let backgroundSequence: ReturnType<typeof useImageSequence> | null = null
 let renderer: ReturnType<typeof useCanvasRenderer> | null = null
 let scrollSequence: ReturnType<typeof useScrollSequence> | null = null
 let resizeObserver: ResizeObserver | null = null
@@ -35,12 +36,22 @@ onMounted(() => {
   renderer = useCanvasRenderer()
   // The sequence photos are landscape; on a narrow/portrait viewport a
   // cover-fit crop would cut the house out of frame, so mobile letterboxes
-  // instead — the whole house stays visible, just smaller.
+  // instead — the whole house stays visible, just smaller. The letterbox
+  // edges are filled by a tiny pre-blurred sequence (~4KB/frame) rather
+  // than a live canvas blur.
   renderer.attach(canvas, { fit: isNarrow ? 'contain' : 'cover' })
+  if (isNarrow) {
+    backgroundSequence = useImageSequence(SEQUENCE_VARIANTS.mobileBackground)
+    void backgroundSequence.start()
+  }
 
-  scrollSequence = useScrollSequence(() => sectionEl.value, sequence, renderer, {
-    frameCount: variant.frameCount
-  })
+  scrollSequence = useScrollSequence(
+    () => sectionEl.value,
+    sequence,
+    renderer,
+    { frameCount: variant.frameCount },
+    backgroundSequence ?? undefined
+  )
 
   watch(sequence.loadProgress, (p) => (loadProgress.value = p))
   watch(scrollSequence.progress, (p) => (scrollProgress.value = p))
@@ -75,6 +86,7 @@ onUnmounted(() => {
   resizeObserver?.disconnect()
   renderer?.dispose()
   sequence?.dispose()
+  backgroundSequence?.dispose()
 })
 </script>
 
